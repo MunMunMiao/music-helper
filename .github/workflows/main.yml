@@ -1,0 +1,37 @@
+name: Release
+
+on: workflow_dispatch
+
+jobs:
+  Release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        with:
+          version: 8
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Docker
+        run: docker build --no-cache --file Dockerfile --tag ${{ secrets.DOCKER_TAG }}:latest .
+
+      - name: Login Registry
+        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY }}
+
+      - name: Push
+        run: docker push ${{ secrets.DOCKER_TAG }}:latest
