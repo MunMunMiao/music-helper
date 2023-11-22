@@ -4,14 +4,12 @@ import { getThumbnail } from '@/lib/bugs/thumbnail'
 type SearchOptionsType = 'track' | 'album' | 'artist'
 
 export interface SearchSongOptions {
-    type: 'track'
     keyword?: string | null
     page?: number | null
     pageSize?: number | null
 }
 
 export interface SearchAlbumOptions {
-    type: 'album'
     keyword?: string | null
     page?: number | null
     pageSize?: number | null
