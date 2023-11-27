@@ -1,4 +1,8 @@
-import puppeteer, { Browser } from 'puppeteer'
+import edgeChromium from '@sparticuz/chromium-min'
+import puppeteer, { Browser } from 'puppeteer-core'
+
+edgeChromium.setHeadlessMode = true
+edgeChromium.setGraphicsMode = false
 
 let browser: Browser | undefined
 
@@ -7,18 +11,20 @@ export async function getBrowser(): Promise<Browser> {
         return browser
     }
 
+    let executablePath: string = `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+
+    try {
+        executablePath = await edgeChromium.executablePath()
+    } catch (e) {
+        void 0
+    }
+
     browser = await puppeteer.launch({
-        headless: 'new',
-        timeout: 60000,
-        args: [
-            '--disable-gpu', // GPU硬件加速
-            '--disable-dev-shm-usage', // 创建临时文件共享内存
-            '--disable-setuid-sandbox', // uid沙盒
-            '--no-first-run', // 没有设置首页。在启动的时候，就会打开一个空白页面。
-            '--no-sandbox', // 沙盒模式
-            '--no-zygote',
-            '--single-process', // 单进程运行
-        ],
+        executablePath,
+        args: edgeChromium.args,
+        defaultViewport: edgeChromium.defaultViewport,
+        headless: edgeChromium.headless,
+        timeout: 60000
     })
 
     return browser
