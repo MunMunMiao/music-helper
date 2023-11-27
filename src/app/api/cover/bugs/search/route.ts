@@ -1,17 +1,19 @@
-import { searchSong } from '@/lib/bugs'
+import { searchSong } from '@/lib/bugs/search'
+
 
 export async function GET(request: Request){
     const url = new URL(request.url)
     const page = url.searchParams.get('page')
     const pageSize = url.searchParams.get('page_size')
     const keyword = url.searchParams.get('keyword')
-    const type = url.searchParams.get('type')
+    const source = url.searchParams.get('source')
 
-    switch (type) {
-        case '1':
-            break
+    switch (source) {
+        case '1': {
+            const result = await searchSong({page: Number(page) || 1, pageSize: Number(pageSize) || 20, keyword})
+            return Response.json(result)
+        }
+        default:
+            return new Response('source is required', {status: 400})
     }
-
-    const result = await searchSong({page: Number(page) || 1, pageSize: Number(pageSize) || 50, keyword})
-    return Response.json(result)
 }
