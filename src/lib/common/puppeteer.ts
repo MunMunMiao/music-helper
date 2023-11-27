@@ -9,6 +9,7 @@ export async function getBrowser(): Promise<Browser> {
 
     browser = await puppeteer.launch({
         headless: 'new',
+        timeout: 60000,
         args: [
             '--disable-gpu', // GPU硬件加速
             '--disable-dev-shm-usage', // 创建临时文件共享内存
