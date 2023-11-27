@@ -1,13 +1,16 @@
-export type GetAlbumCoverOptions = {
+import { getImageSource } from '@/lib/bugs/image'
+
+export type GetCoverOptions = {
     albumId: number
     id?: number
+    quality?: number | 'original'
 }
 
 export type Photo = {
     id: number
     albumId: number
-    album_photo_id: number
-    url: string
+    origin: string
+    cover: string
 }
 
 type OriginResult = {
@@ -16,10 +19,10 @@ type OriginResult = {
     album_photo_id: number
     album_id: number
     imageUrl: string
-    repres_yn: "Y" | "N"
+    repres_yn: 'Y' | 'N'
 }[]
 
-export async function getAlbumCover(options: GetAlbumCoverOptions): Promise<Photo | null> {
+export async function getCover(options: GetCoverOptions): Promise<Photo | null> {
     const url = new URL('/album/ajax/photoes', 'https://music.bugs.co.kr')
     url.searchParams.set('albumId', options.albumId.toString())
 
@@ -31,14 +34,17 @@ export async function getAlbumCover(options: GetAlbumCoverOptions): Promise<Phot
     const data = await resp.json() as unknown as OriginResult
     const photo = data.find(i => i.repres_yn === 'Y')
 
-    if (!photo){
+    if (!photo) {
         return null
     }
+
+    const origin = `https:${photo.imageUrl}`
+    const cover = getImageSource(origin, options.quality)
 
     return {
         id: photo.id,
         albumId: photo.album_id,
-        album_photo_id: photo.album_photo_id,
-        url: `https:${photo.imageUrl}`
+        origin,
+        cover
     }
 }
