@@ -1,7 +1,7 @@
 import edgeChromium from '@sparticuz/chromium-min'
 import puppeteer, { Browser } from 'puppeteer-core'
 
-edgeChromium.setHeadlessMode = true
+// edgeChromium.setHeadlessMode = true
 edgeChromium.setGraphicsMode = false
 
 let browser: Browser | undefined

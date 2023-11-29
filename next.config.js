@@ -2,10 +2,11 @@
 const nextConfig = {
 	output: 'standalone',
 	webpack: (config, { isServer }) => {
-		config.externals = {
-			'@sparticuz/chromium-min': '@sparticuz/chromium-min',
-			'puppeteer-core': 'puppeteer-core'
-		}
+		config.externals = [
+			...config.externals,
+			'@sparticuz/chromium-min',
+			'puppeteer-core',
+		]
 
 		return config
 	}
