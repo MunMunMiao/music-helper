@@ -1,31 +1,22 @@
-import edgeChromium from '@sparticuz/chromium-min'
 import puppeteer, { Browser } from 'puppeteer-core'
-
-// edgeChromium.setHeadlessMode = true
-edgeChromium.setGraphicsMode = false
+import * as process from 'process'
 
 let browser: Browser | undefined
 
-export async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser | undefined> {
+    const endpoint = process.env.PUPPETEER_ENDPOINT as string | undefined
+
+    if (endpoint) {
+        return undefined
+    }
+
     if (browser) {
         return browser
     }
 
-    let executablePath: string = `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
-
-    try {
-        executablePath = await edgeChromium.executablePath()
-    } catch (e) {
-        void 0
-    }
-
-    browser = await puppeteer.launch({
-        executablePath,
-        args: edgeChromium.args,
-        defaultViewport: edgeChromium.defaultViewport,
-        headless: edgeChromium.headless,
-        timeout: 60000
+    browser = await puppeteer.connect({
+        browserWSEndpoint: process.env.PUPPETEER_ENDPOINT,
+        protocolTimeout: 60000
     })
-
     return browser
 }

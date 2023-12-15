@@ -15,7 +15,11 @@ export async function getToken(): Promise<string | null> {
 export async function extractToken(): Promise<string | null> {
     let token: string | null = null
     const browser = await getBrowser()
+    if (!browser){
+        return null
+    }
     const page = await browser.newPage()
+    page.setDefaultTimeout(60000)
     await page.setRequestInterception(true)
     page.on('request', async request => {
         const type = request.resourceType();
@@ -41,7 +45,6 @@ export async function extractToken(): Promise<string | null> {
         element?.click()
     })
     await page.waitForNetworkIdle()
-
     await page.close()
 
     return token
