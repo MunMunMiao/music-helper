@@ -20,7 +20,7 @@ export function Header() {
 
     return (
         <Navbar>
-            <NavbarContent className="hidden sm:flex gap-4" justify="start">
+            <NavbarContent className="hidden gap-4 sm:flex" justify="start">
                 {
                     menu.map(({name, href}, index) => (
                         <NavbarItem key={index} isActive={pathname.startsWith(href)}>

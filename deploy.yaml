@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browserless
+  labels:
+    app: browserless
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: browserless
+  template:
+    metadata:
+      labels:
+        app: browserless
+    spec:
+      containers:
+        - name: browserless
+          image: browserless/chrome:1.61-puppeteer-21.4.1
+          ports:
+            - containerPort: 3000
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: browserless
+                  key: token
+            - name: MAX_CONCURRENT_SESSIONS
+              value: '30'
+            - name: DEFAULT_HEADLESS
+              value: 'false'
+            - name: CONNECTION_TIMEOUT
+              value: '60000'
+            - name: MAX_QUEUE_LENGTH
+              value: '50'
+            - name: WORKSPACE_DELETE_EXPIRED
+              value: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: browserless
+stringData:
+  token: "browserless-token"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: browserless
+spec:
+  selector:
+    app: browserless
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: browserless
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  rules:
+    - host: browserless.fromis.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: browserless
+                port:
+                  number: 80

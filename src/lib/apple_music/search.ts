@@ -1,209 +1,124 @@
-import { JSDOM } from 'jsdom'
-import { getCover, Photo } from '@/lib/bugs/album'
-import { toNumber } from '@/lib/common/core'
+import * as process from 'process'
 
-export interface SearchSongOptions {
+export interface SearchOptions {
+    groups: 'song' | 'album'
     keyword?: string | null
-    page?: number | null
-    pageSize?: number | null
-}
-
-export interface SearchAlbumOptions {
-    keyword?: string | null
-    page?: number | null
-    pageSize?: number | null
-}
-
-export type ListSearchResult = {
-    total: number
-    items: SearchResult[]
+    offset?: number | null
+    limit?: number | null
 }
 
 export type SearchResult = {
-    name?: string
-    artist?: string
-    album?: string
-    cover?: string
-    origin?: string
-    albumId?: number
-    artistId?: number
-    trackId?: number
+    songName: string
+    albumName: string
+    artistName: string
+    artwork: {
+        width: number
+        height: number
+        url: string
+    }
 }
 
-export async function searchSong(options: SearchSongOptions): Promise<ListSearchResult> {
-    const url: URL = new URL('/search/track', 'https://music.bugs.co.kr/')
+type OriginSearchAlbum = {
+    id: string
+    type: 'albums'
+    attributes: {
+        name: string
+        artistName: string
+        artwork: {
+            width: number
+            height: number
+            url: string
+        }
+    }
+}
+
+type OriginSearchSong = {
+    id: string
+    type: 'songs'
+    attributes: {
+        name: string
+        albumName: string
+        artistName: string
+        artwork: {
+            width: number
+            height: number
+            url: string
+        }
+    }
+}
+
+type OriginSearchResult = {
+    results?: {
+        album: {
+            groupId: 'song' | 'album'
+            data: OriginSearchAlbum[]
+        },
+        song: {
+            groupId: 'song' | 'album'
+            data: OriginSearchSong[]
+        }
+    }
+}
+
+export async function search(options: SearchOptions): Promise<SearchResult[]> {
+    const url: URL = new URL('https://amp-api.music.apple.com/v1/catalog/cn/search')
+    url.searchParams.set('groups', options.groups)
+    url.searchParams.set('fields[albums]', 'artistName,artwork,name')
+    url.searchParams.set('types', 'albums,songs')
+    url.searchParams.set('with', 'serverBubbles')
 
     if (options?.keyword) {
-        url.searchParams.set('q', options.keyword)
-        url.searchParams.set('query', options.keyword)
+        url.searchParams.set('term', options.keyword)
     }
 
-    if (options?.page) {
-        url.searchParams.set('page', options.page.toString())
+    if (options?.offset) {
+        url.searchParams.set('offset', options.offset.toString())
     }
 
-    if (options?.pageSize) {
-        url.searchParams.set('size', options.pageSize.toString())
+    if (options?.limit) {
+        url.searchParams.set('limit', options.limit.toString())
     }
 
-    const resp = await fetch(url)
-    const html = await resp.text()
-    const dom = JSDOM.fragment(html)
-    const rows = dom.querySelectorAll('table.trackList tbody tr')
-    const totalString = dom.querySelector<HTMLAnchorElement>('.tabSearch a.track')?.text
-    let total: number = 0
+    const resp = await fetch(url, {
+        headers: {
+            origin: 'https://music.apple.com',
+            referer: 'https://music.apple.com',
+            authorization: process.env.APPLE_MUSIC_AUTHORIZATION as string
+        }
+    })
+    const json: OriginSearchResult = await resp.json()
+    let result: SearchResult[] = []
 
-    if (totalString) {
-        const result = totalString.match(/[0-9]+/ig)
-        if (result) {
-            total = Number(result.join(''))
+    switch (options.groups) {
+        case 'album': {
+            const array = json.results?.album.data ?? []
+            result = array.map(item => ({
+                songName: '',
+                albumName: item.attributes.name,
+                artistName: item.attributes.artistName,
+                artwork: {
+                    width: item.attributes.artwork.width,
+                    height: item.attributes.artwork.height,
+                    url: item.attributes.artwork.url
+                }
+            }))
+            break
+        }
+        case 'song': {
+            const array = json.results?.song.data ?? []
+            result = array.map(item => ({
+                songName: item.attributes.name,
+                albumName: item.attributes.albumName,
+                artistName: item.attributes.artistName,
+                artwork: {
+                    width: item.attributes.artwork.width,
+                    height: item.attributes.artwork.height,
+                    url: item.attributes.artwork.url
+                }
+            }))
+            break
         }
     }
 
-    const result: SearchResult[] = []
-    const albumIds: number[] = []
-
-    for (const item of rows) {
-        const albumId = item.attributes.getNamedItem('albumid')?.nodeValue
-        const artistId = item.attributes.getNamedItem('artistid')?.nodeValue
-        const trackId = item.attributes.getNamedItem('trackid')?.nodeValue
-
-        const name = item.querySelector<HTMLAnchorElement>(`tr[trackid="${trackId}"] p.title a`)?.text
-        const artist = item.querySelector<HTMLAnchorElement>(`tr[trackid="${trackId}"] p.artist a`)?.text
-        const album = item.querySelector<HTMLAnchorElement>(`tr[trackid="${trackId}"] a.album`)?.text
-
-        const data: SearchResult = {
-            name,
-            artist,
-            album,
-            albumId: toNumber(albumId, {optional: true}),
-            artistId: toNumber(artistId, {optional: true}),
-            trackId: toNumber(trackId, {optional: true})
-        }
-
-        if (data.albumId) {
-            albumIds.push(data.albumId)
-        }
-
-        result.push(data)
-    }
-
-    const coverMap = await searchCover(...albumIds)
-
-    for (const item of result) {
-        if (!item.albumId) {
-            continue
-        }
-
-        const photo = coverMap.get(item?.albumId)
-        if (!photo) {
-            continue
-        }
-
-        item.origin = photo.origin
-        item.cover = photo.cover
-    }
-
-    return {
-        total,
-        items: result
-    }
-}
-
-export async function searchAlbum(options: SearchAlbumOptions): Promise<ListSearchResult> {
-    const url: URL = new URL('/search/album', 'https://music.bugs.co.kr/')
-
-    if (options?.keyword) {
-        url.searchParams.set('q', options.keyword)
-        url.searchParams.set('query', options.keyword)
-    }
-
-    if (options?.page) {
-        url.searchParams.set('page', options.page.toString())
-    }
-
-    if (options?.pageSize) {
-        url.searchParams.set('size', options.pageSize.toString())
-    }
-
-    const resp = await fetch(url)
-    const html = await resp.text()
-    const dom = JSDOM.fragment(html)
-    const rows = dom.querySelectorAll('ul.albumList li')
-    const totalString = dom.querySelector<HTMLAnchorElement>('.tabSearch a.album')?.text
-    let total: number = 0
-
-    if (totalString) {
-        const result = totalString.match(/[0-9]+/ig)
-        if (result) {
-            const _s = result.join('')
-            total = Number(_s)
-        }
-    }
-
-    const result: SearchResult[] = []
-    const albumIds: number[] = []
-
-    for (const item of rows) {
-        const albumId = item.attributes.getNamedItem('albumid')?.nodeValue
-        const artistId = item.attributes.getNamedItem('artistid')?.nodeValue
-        const trackId = item.attributes.getNamedItem('trackid')?.nodeValue
-
-        const cover = item.querySelector<HTMLImageElement>(`tr[trackid="${trackId}"] a.thumbnail img`)?.src
-        const name = item.querySelector<HTMLAnchorElement>(`tr[trackid="${trackId}"] p.title a`)?.text
-        const artist = item.querySelector<HTMLAnchorElement>(`tr[trackid="${trackId}"] p.artist a`)?.text
-        const album = item.querySelector<HTMLAnchorElement>(`tr[trackid="${trackId}"] a.album`)?.text
-
-        const data: SearchResult = {
-            name,
-            artist,
-            album,
-            albumId: toNumber(albumId, {optional: true}),
-            artistId: toNumber(artistId, {optional: true}),
-            trackId: toNumber(trackId, {optional: true})
-        }
-
-        if (data.albumId) {
-            albumIds.push(data.albumId)
-        }
-
-        result.push(data)
-    }
-
-    const coverMap = await searchCover(...albumIds)
-
-    for (const item of result) {
-        if (!item.albumId) {
-            continue
-        }
-
-        const photo = coverMap.get(item?.albumId)
-        if (!photo) {
-            continue
-        }
-
-        item.origin = photo.origin
-        item.cover = photo.cover
-    }
-
-    return {
-        total,
-        items: result
-    }
-}
-
-export async function searchCover(...value: number[]): Promise<Map<number, Photo>> {
-    const map = new Map<number, Photo>()
-    const requests = value.map(i => getCover({albumId: i, quality: 100}))
-    const covers = await Promise.all(requests)
-
-    for (const item of covers) {
-        if (!item) {
-            continue
-        }
-
-        map.set(item.albumId, item)
-    }
-
-    return map
+    return result
 }
